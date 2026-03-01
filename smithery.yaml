@@ -1,0 +1,18 @@
+runtime: "container"
+startCommand:
+  type: "http"
+configSchema:
+  type: "object"
+  properties:
+    apiKey:
+      type: "string"
+      description: "Admin API key for the Agent Guardrail endpoint"
+    endpoint:
+      type: "string"
+      description: "Guardrail API endpoint URL"
+  required:
+    - apiKey
+    - endpoint
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."

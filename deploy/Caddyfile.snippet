@@ -1,0 +1,8 @@
+# Add this block to the existing Caddy config on the VPS
+# After the audit-proxy block
+
+# Agent Guardrail Proxy
+# Route: guardrail.your-domain.com -> WireGuard -> Mac:8300
+guardrail.your-domain.com {
+    reverse_proxy 10.0.0.2:8300
+}

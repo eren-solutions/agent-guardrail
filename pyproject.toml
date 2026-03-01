@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-guardrail"
+version = "0.1.0"
+description = "Action-level governance for AI agents -- control what they DO, not what they SAY"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    {name = "Eren Solutions"},
+]
+keywords = [
+    "ai", "agents", "guardrails", "governance", "safety",
+    "policy", "langchain", "crewai", "autogen",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []  # Zero core deps -- stdlib only
+
+[project.optional-dependencies]
+proxy = ["fastapi>=0.100", "uvicorn>=0.23", "pydantic>=2.0"]
+dev = ["pytest>=7.0", "black>=23.0", "flake8>=6.0"]
+
+[project.scripts]
+agent-guardrail = "agent_guardrail.cli:main"
+guardrail-proxy = "agent_guardrail.proxy:main"
+
+[project.urls]
+Homepage = "https://github.com/eren-solutions/agent-guardrail"
+Repository = "https://github.com/eren-solutions/agent-guardrail"
+Issues = "https://github.com/eren-solutions/agent-guardrail/issues"
+
+[tool.setuptools.packages.find]
+include = ["agent_guardrail*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

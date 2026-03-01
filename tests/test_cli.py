@@ -23,7 +23,10 @@ def run_cli(*args, env=None):
     """Run agent-guardrail CLI and return (returncode, stdout, stderr)."""
     result = subprocess.run(
         [sys.executable, "-m", "agent_guardrail"] + list(args),
-        capture_output=True, text=True, env=env, timeout=30,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
     )
     return result.returncode, result.stdout, result.stderr
 
@@ -45,9 +48,7 @@ class TestCLIRegister:
         assert "gw_" in out
 
     def test_register_with_framework(self, cli_env):
-        rc, out, err = run_cli(
-            "register", "my-agent", "--framework", "langchain", env=cli_env
-        )
+        rc, out, err = run_cli("register", "my-agent", "--framework", "langchain", env=cli_env)
         assert rc == 0
         assert "Agent registered" in out
 

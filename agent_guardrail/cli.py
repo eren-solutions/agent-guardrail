@@ -27,9 +27,7 @@ import logging
 import os
 import sys
 
-LOG_DIR = os.path.expanduser(
-    os.environ.get("GUARDRAIL_LOG_DIR", "~/.agent-guardrail/logs")
-)
+LOG_DIR = os.path.expanduser(os.environ.get("GUARDRAIL_LOG_DIR", "~/.agent-guardrail/logs"))
 LOG_FILE = os.path.join(LOG_DIR, "guardrail-cli.log")
 
 
@@ -57,7 +55,9 @@ def cmd_agents(args) -> None:
         return
 
     print(f"\n  {'NAME':20}  {'FRAMEWORK':12}  {'ENABLED':8}  {'KILLED':7}  {'ID'}")
-    print(f"  {chr(9472) * 20}  {chr(9472) * 12}  {chr(9472) * 8}  {chr(9472) * 7}  {chr(9472) * 36}")
+    print(
+        f"  {chr(9472) * 20}  {chr(9472) * 12}  {chr(9472) * 8}  {chr(9472) * 7}  {chr(9472) * 36}"
+    )
     for a in agents:
         name = a.get("name", "?")[:20]
         fw = (a.get("framework") or "-")[:12]
@@ -120,7 +120,9 @@ def cmd_policies(args) -> None:
         return
 
     print(f"\n  {'NAME':30}  {'SCOPE':8}  {'PRIORITY':8}  {'AGENT':12}  {'ID'}")
-    print(f"  {chr(9472) * 30}  {chr(9472) * 8}  {chr(9472) * 8}  {chr(9472) * 12}  {chr(9472) * 36}")
+    print(
+        f"  {chr(9472) * 30}  {chr(9472) * 8}  {chr(9472) * 8}  {chr(9472) * 12}  {chr(9472) * 36}"
+    )
     for p in policies:
         name = p.get("name", "?")[:30]
         scope = p.get("scope", "?")[:8]
@@ -171,7 +173,9 @@ def cmd_actions(args) -> None:
         return
 
     print(f"\n  {'TIME':19}  {'DECISION':10}  {'TYPE':15}  {'TOOL':15}  {'TARGET'}")
-    print(f"  {chr(9472) * 19}  {chr(9472) * 10}  {chr(9472) * 15}  {chr(9472) * 15}  {chr(9472) * 30}")
+    print(
+        f"  {chr(9472) * 19}  {chr(9472) * 10}  {chr(9472) * 15}  {chr(9472) * 15}  {chr(9472) * 30}"
+    )
     for a in actions:
         time = (a.get("created_at") or "")[:19]
         decision = a.get("decision", "?")[:10]
@@ -236,7 +240,9 @@ def cmd_approvals(args) -> None:
         return
 
     print(f"\n  {'AGENT':12}  {'TYPE':15}  {'CREATED':19}  {'EXPIRES':19}  {'ID'}")
-    print(f"  {chr(9472) * 12}  {chr(9472) * 15}  {chr(9472) * 19}  {chr(9472) * 19}  {chr(9472) * 36}")
+    print(
+        f"  {chr(9472) * 12}  {chr(9472) * 15}  {chr(9472) * 19}  {chr(9472) * 19}  {chr(9472) * 36}"
+    )
     for ap in approvals:
         agent = ap.get("agent_id", "?")[:12]
         atype = ap.get("action_type", "?")[:15]

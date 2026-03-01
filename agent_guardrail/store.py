@@ -130,15 +130,33 @@ class GuardrailStore:
             """)
 
             # Indices
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_actions_agent ON guardrail_actions(agent_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_actions_created ON guardrail_actions(created_at DESC)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_actions_decision ON guardrail_actions(decision)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_actions_session ON guardrail_actions(session_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_actions_type ON guardrail_actions(action_type)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_policies_agent ON guardrail_policies(agent_id)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_policies_scope ON guardrail_policies(scope)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_spend_agent ON guardrail_spend(agent_id, period)")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_approvals_status ON guardrail_approvals(status)")
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_actions_agent ON guardrail_actions(agent_id)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_actions_created ON guardrail_actions(created_at DESC)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_actions_decision ON guardrail_actions(decision)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_actions_session ON guardrail_actions(session_id)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_actions_type ON guardrail_actions(action_type)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_policies_agent ON guardrail_policies(agent_id)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_policies_scope ON guardrail_policies(scope)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_spend_agent ON guardrail_spend(agent_id, period)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_approvals_status ON guardrail_approvals(status)"
+            )
 
             conn.commit()
             self._initialized = True
@@ -151,7 +169,10 @@ class GuardrailStore:
     # ------------------------------------------------------------------
 
     def register_agent(
-        self, name: str, framework: str = "", description: str = "",
+        self,
+        name: str,
+        framework: str = "",
+        description: str = "",
         metadata: Optional[Dict] = None,
     ) -> Dict[str, str]:
         """Register an agent. Returns {id, api_key}."""
@@ -165,8 +186,16 @@ class GuardrailStore:
                 "INSERT INTO guardrail_agents "
                 "(id, name, framework, description, api_key, metadata, created_at, updated_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (agent_id, name, framework, description, api_key,
-                 json.dumps(metadata or {}), now, now),
+                (
+                    agent_id,
+                    name,
+                    framework,
+                    description,
+                    api_key,
+                    json.dumps(metadata or {}),
+                    now,
+                    now,
+                ),
             )
             conn.commit()
             return {"id": agent_id, "api_key": api_key}
@@ -249,7 +278,8 @@ class GuardrailStore:
                     policy.get("scope", "global"),
                     policy.get("priority", 100),
                     json.dumps(policy.get("rules", {})),
-                    now, now,
+                    now,
+                    now,
                 ),
             )
             conn.commit()
@@ -278,8 +308,7 @@ class GuardrailStore:
             query += " ORDER BY priority ASC"
             cur.execute(query, params)
             return [
-                {**dict(row), "rules": json.loads(row["rules"] or "{}")}
-                for row in cur.fetchall()
+                {**dict(row), "rules": json.loads(row["rules"] or "{}")} for row in cur.fetchall()
             ]
         finally:
             conn.close()
@@ -374,8 +403,7 @@ class GuardrailStore:
                     "INSERT INTO guardrail_spend "
                     "(id, agent_id, period, total_usd, action_count, denied_count, updated_at) "
                     "VALUES (?, ?, ?, ?, 1, ?, ?)",
-                    (spend_id, agent_id, period, cost,
-                     1 if decision == "deny" else 0, now),
+                    (spend_id, agent_id, period, cost, 1 if decision == "deny" else 0, now),
                 )
 
             conn.commit()
@@ -431,9 +459,7 @@ class GuardrailStore:
     # Spend
     # ------------------------------------------------------------------
 
-    def get_spend(
-        self, agent_id: str, period: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def get_spend(self, agent_id: str, period: Optional[str] = None) -> Dict[str, Any]:
         """Get spend for an agent. If period is None, returns today's spend."""
         self._ensure_tables()
         conn = self._db()
@@ -449,8 +475,11 @@ class GuardrailStore:
             if row:
                 return dict(row)
             return {
-                "agent_id": agent_id, "period": period,
-                "total_usd": 0.0, "action_count": 0, "denied_count": 0,
+                "agent_id": agent_id,
+                "period": period,
+                "total_usd": 0.0,
+                "action_count": 0,
+                "denied_count": 0,
             }
         finally:
             conn.close()
@@ -473,22 +502,35 @@ class GuardrailStore:
     # Approvals
     # ------------------------------------------------------------------
 
-    def create_approval(self, action_id: str, agent_id: str,
-                        action_type: str, action_detail: Dict,
-                        expires_minutes: int = 30) -> str:
+    def create_approval(
+        self,
+        action_id: str,
+        agent_id: str,
+        action_type: str,
+        action_detail: Dict,
+        expires_minutes: int = 30,
+    ) -> str:
         self._ensure_tables()
         conn = self._db()
         try:
             approval_id = str(uuid.uuid4())
             now = datetime.now(timezone.utc)
             from datetime import timedelta
+
             expires = (now + timedelta(minutes=expires_minutes)).isoformat()
             conn.execute(
                 "INSERT INTO guardrail_approvals "
                 "(id, action_id, agent_id, action_type, action_detail, expires_at, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (approval_id, action_id, agent_id, action_type,
-                 json.dumps(action_detail), expires, now.isoformat()),
+                (
+                    approval_id,
+                    action_id,
+                    agent_id,
+                    action_type,
+                    json.dumps(action_detail),
+                    expires,
+                    now.isoformat(),
+                ),
             )
             conn.commit()
             return approval_id
@@ -552,8 +594,7 @@ class GuardrailStore:
             total_actions = cur.fetchone()[0]
 
             cur.execute(
-                "SELECT decision, COUNT(*) as cnt FROM guardrail_actions "
-                "GROUP BY decision"
+                "SELECT decision, COUNT(*) as cnt FROM guardrail_actions " "GROUP BY decision"
             )
             actions_by_decision = {row["decision"]: row["cnt"] for row in cur.fetchall()}
 
@@ -573,9 +614,7 @@ class GuardrailStore:
             cur.execute("SELECT COALESCE(SUM(total_usd), 0) FROM guardrail_spend")
             total_spend = cur.fetchone()[0]
 
-            cur.execute(
-                "SELECT COUNT(*) FROM guardrail_approvals WHERE status = 'pending'"
-            )
+            cur.execute("SELECT COUNT(*) FROM guardrail_approvals WHERE status = 'pending'")
             pending_approvals = cur.fetchone()[0]
 
             return {

@@ -56,10 +56,12 @@ class TestAgentCRUD:
 
 class TestPolicyCRUD:
     def test_save_and_get_policy(self, store):
-        pid = store.save_policy({
-            "name": "test-policy",
-            "rules": {"tool_denylist": ["sudo"]},
-        })
+        pid = store.save_policy(
+            {
+                "name": "test-policy",
+                "rules": {"tool_denylist": ["sudo"]},
+            }
+        )
         policies = store.get_policies()
         assert len(policies) == 1
         assert policies[0]["id"] == pid
@@ -69,11 +71,13 @@ class TestPolicyCRUD:
         # Global policy
         store.save_policy({"name": "global-policy", "scope": "global"})
         # Agent-specific policy
-        store.save_policy({
-            "name": "agent-policy",
-            "agent_id": agent["id"],
-            "scope": "agent",
-        })
+        store.save_policy(
+            {
+                "name": "agent-policy",
+                "agent_id": agent["id"],
+                "scope": "agent",
+            }
+        )
         # Get policies for agent — should include global + agent-specific
         policies = store.get_policies(agent_id=agent["id"])
         assert len(policies) == 2
@@ -100,13 +104,15 @@ class TestPolicyCRUD:
 
 class TestActionRecording:
     def test_record_and_list_actions(self, store, agent):
-        store.record_action({
-            "agent_id": agent["id"],
-            "action_type": "bash",
-            "tool_name": "bash",
-            "target": "/workspace/test.sh",
-            "decision": "allow",
-        })
+        store.record_action(
+            {
+                "agent_id": agent["id"],
+                "action_type": "bash",
+                "tool_name": "bash",
+                "target": "/workspace/test.sh",
+                "decision": "allow",
+            }
+        )
         actions = store.list_actions()
         assert len(actions) == 1
         assert actions[0]["action_type"] == "bash"
@@ -132,57 +138,67 @@ class TestActionRecording:
 
     def test_session_replay(self, store, agent):
         for i in range(5):
-            store.record_action({
-                "agent_id": agent["id"],
-                "session_id": "session-123",
-                "action_type": "write_file",
-                "decision": "allow",
-            })
+            store.record_action(
+                {
+                    "agent_id": agent["id"],
+                    "session_id": "session-123",
+                    "action_type": "write_file",
+                    "decision": "allow",
+                }
+            )
         replay = store.get_session_replay("session-123")
         assert len(replay) == 5
 
 
 class TestSpendTracking:
     def test_spend_tracking_on_record(self, store, agent):
-        store.record_action({
-            "agent_id": agent["id"],
-            "action_type": "api_call",
-            "decision": "allow",
-            "cost_usd": 0.05,
-        })
+        store.record_action(
+            {
+                "agent_id": agent["id"],
+                "action_type": "api_call",
+                "decision": "allow",
+                "cost_usd": 0.05,
+            }
+        )
         spend = store.get_spend(agent["id"])
         assert spend["total_usd"] == 0.05
         assert spend["action_count"] == 1
 
     def test_spend_accumulation(self, store, agent):
         for _ in range(3):
-            store.record_action({
-                "agent_id": agent["id"],
-                "action_type": "api_call",
-                "decision": "allow",
-                "cost_usd": 0.10,
-            })
+            store.record_action(
+                {
+                    "agent_id": agent["id"],
+                    "action_type": "api_call",
+                    "decision": "allow",
+                    "cost_usd": 0.10,
+                }
+            )
         spend = store.get_spend(agent["id"])
         assert abs(spend["total_usd"] - 0.30) < 0.001
         assert spend["action_count"] == 3
 
     def test_total_spend(self, store, agent):
-        store.record_action({
-            "agent_id": agent["id"],
-            "action_type": "api_call",
-            "decision": "allow",
-            "cost_usd": 1.50,
-        })
+        store.record_action(
+            {
+                "agent_id": agent["id"],
+                "action_type": "api_call",
+                "decision": "allow",
+                "cost_usd": 1.50,
+            }
+        )
         total = store.get_total_spend(agent["id"])
         assert total == 1.50
 
     def test_denied_count(self, store, agent):
-        store.record_action({
-            "agent_id": agent["id"],
-            "action_type": "bash",
-            "decision": "deny",
-            "cost_usd": 0.0,
-        })
+        store.record_action(
+            {
+                "agent_id": agent["id"],
+                "action_type": "bash",
+                "decision": "deny",
+                "cost_usd": 0.0,
+            }
+        )
         spend = store.get_spend(agent["id"])
         assert spend["denied_count"] == 1
 
@@ -231,17 +247,21 @@ class TestStats:
         assert s["total_spend_usd"] == 0.0
 
     def test_stats_with_data(self, store, agent):
-        store.record_action({
-            "agent_id": agent["id"],
-            "action_type": "bash",
-            "decision": "allow",
-            "cost_usd": 0.25,
-        })
-        store.record_action({
-            "agent_id": agent["id"],
-            "action_type": "sudo",
-            "decision": "deny",
-        })
+        store.record_action(
+            {
+                "agent_id": agent["id"],
+                "action_type": "bash",
+                "decision": "allow",
+                "cost_usd": 0.25,
+            }
+        )
+        store.record_action(
+            {
+                "agent_id": agent["id"],
+                "action_type": "sudo",
+                "decision": "deny",
+            }
+        )
         s = store.stats()
         assert s["active_agents"] == 1
         assert s["total_actions"] == 2

@@ -237,8 +237,11 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
     ):
         _require_admin(request)
         actions = store.list_actions(
-            agent_id=agent_id, session_id=session_id,
-            decision=decision, limit=min(limit, 500), offset=offset,
+            agent_id=agent_id,
+            session_id=session_id,
+            decision=decision,
+            limit=min(limit, 500),
+            offset=offset,
         )
         return {"actions": actions, "count": len(actions)}
 
@@ -323,7 +326,9 @@ def main():
     print("  =======================")
     print(f"  Port:     {args.port}")
     print(f"  DB:       {args.db or 'default (~/.agent-guardrail/guardrail.db)'}")
-    print(f"  Admin:    {'configured' if args.admin_key or os.environ.get('GUARDRAIL_ADMIN_KEY') else 'open (no key)'}")
+    print(
+        f"  Admin:    {'configured' if args.admin_key or os.environ.get('GUARDRAIL_ADMIN_KEY') else 'open (no key)'}"
+    )
     print(f"  Docs:     http://{args.host}:{args.port}/docs")
     print()
 

@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PolicyDecision:
     """Result of evaluating an action against policies."""
+
     decision: str  # "allow", "deny", "require_approval"
     reason: str = ""
     policy_id: Optional[str] = None
@@ -110,8 +111,7 @@ class PolicyEngine:
         if not agent:
             return PolicyDecision(decision="deny", reason="Agent not registered")
         if agent.get("killed"):
-            return PolicyDecision(decision="deny", reason="Kill switch active",
-                                  risk_score=1.0)
+            return PolicyDecision(decision="deny", reason="Kill switch active", risk_score=1.0)
         if not agent.get("enabled"):
             return PolicyDecision(decision="deny", reason="Agent disabled")
 
@@ -135,7 +135,8 @@ class PolicyEngine:
                     return PolicyDecision(
                         decision="deny",
                         reason=f"Daily spend cap exceeded (${spend['total_usd']:.2f} / ${daily_cap:.2f})",
-                        policy_id=pid, risk_score=risk_score,
+                        policy_id=pid,
+                        risk_score=risk_score,
                     )
 
             total_cap = rules.get("spend_cap_total_usd")
@@ -145,7 +146,8 @@ class PolicyEngine:
                     return PolicyDecision(
                         decision="deny",
                         reason=f"Total spend cap exceeded (${total:.2f} / ${total_cap:.2f})",
-                        policy_id=pid, risk_score=risk_score,
+                        policy_id=pid,
+                        risk_score=risk_score,
                     )
 
             # Tool denylist
@@ -154,7 +156,8 @@ class PolicyEngine:
                 return PolicyDecision(
                     decision="deny",
                     reason=f"Tool '{effective_tool}' is denied by policy '{policy.get('name')}'",
-                    policy_id=pid, risk_score=risk_score,
+                    policy_id=pid,
+                    risk_score=risk_score,
                 )
 
             # Target denylist
@@ -163,7 +166,8 @@ class PolicyEngine:
                 return PolicyDecision(
                     decision="deny",
                     reason=f"Target '{target}' is denied by policy '{policy.get('name')}'",
-                    policy_id=pid, risk_score=risk_score,
+                    policy_id=pid,
+                    risk_score=risk_score,
                 )
 
             # Network denylist
@@ -176,7 +180,8 @@ class PolicyEngine:
                         return PolicyDecision(
                             decision="deny",
                             reason=f"Network target '{target}' denied",
-                            policy_id=pid, risk_score=risk_score,
+                            policy_id=pid,
+                            risk_score=risk_score,
                         )
 
             # Approval requirements
@@ -185,7 +190,8 @@ class PolicyEngine:
                 return PolicyDecision(
                     decision="require_approval",
                     reason=f"Tool '{effective_tool}' requires human approval",
-                    policy_id=pid, risk_score=risk_score,
+                    policy_id=pid,
+                    risk_score=risk_score,
                 )
 
             # Risk threshold
@@ -194,7 +200,8 @@ class PolicyEngine:
                 return PolicyDecision(
                     decision="require_approval",
                     reason=f"Risk score {risk_score:.2f} exceeds threshold {risk_threshold}",
-                    policy_id=pid, risk_score=risk_score,
+                    policy_id=pid,
+                    risk_score=risk_score,
                 )
 
             # Tool allowlist (if specified, only listed tools are allowed)
@@ -203,7 +210,8 @@ class PolicyEngine:
                 return PolicyDecision(
                     decision="deny",
                     reason=f"Tool '{effective_tool}' not in allowlist",
-                    policy_id=pid, risk_score=risk_score,
+                    policy_id=pid,
+                    risk_score=risk_score,
                 )
 
             # Target allowlist
@@ -212,12 +220,12 @@ class PolicyEngine:
                 return PolicyDecision(
                     decision="deny",
                     reason=f"Target '{target}' not in allowlist",
-                    policy_id=pid, risk_score=risk_score,
+                    policy_id=pid,
+                    risk_score=risk_score,
                 )
 
         # Default: allow
-        return PolicyDecision(decision="allow", reason="No policy violated",
-                              risk_score=risk_score)
+        return PolicyDecision(decision="allow", reason="No policy violated", risk_score=risk_score)
 
     def evaluate_and_record(
         self,
@@ -240,19 +248,21 @@ class PolicyEngine:
         )
 
         if self._store:
-            self._store.record_action({
-                "agent_id": agent_id,
-                "session_id": session_id,
-                "action_type": action_type,
-                "action_detail": detail or {},
-                "tool_name": tool_name,
-                "target": target,
-                "decision": decision.decision,
-                "decision_reason": decision.reason,
-                "policy_id": decision.policy_id,
-                "cost_usd": cost_usd,
-                "risk_score": decision.risk_score,
-            })
+            self._store.record_action(
+                {
+                    "agent_id": agent_id,
+                    "session_id": session_id,
+                    "action_type": action_type,
+                    "action_detail": detail or {},
+                    "tool_name": tool_name,
+                    "target": target,
+                    "decision": decision.decision,
+                    "decision_reason": decision.reason,
+                    "policy_id": decision.policy_id,
+                    "cost_usd": cost_usd,
+                    "risk_score": decision.risk_score,
+                }
+            )
 
             # Create approval request if needed
             if decision.decision == "require_approval":
@@ -287,8 +297,15 @@ DEFAULT_POLICIES = {
         "description": "Allows most dev operations. Blocks dangerous commands and sensitive paths.",
         "rules": {
             "tool_denylist": ["sudo", "rm -rf", "curl|bash", "eval"],
-            "target_denylist": ["/etc/*", "/root/*", "*.env", "*.key", "*.pem",
-                                "*credentials*", "*secret*"],
+            "target_denylist": [
+                "/etc/*",
+                "/root/*",
+                "*.env",
+                "*.key",
+                "*.pem",
+                "*credentials*",
+                "*secret*",
+            ],
             "require_approval": ["delete*", "install", "spawn_agent"],
             "spend_cap_daily_usd": 25.0,
             "spend_cap_total_usd": 500.0,

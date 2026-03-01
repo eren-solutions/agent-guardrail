@@ -35,12 +35,14 @@ def agent(store):
 def agent_with_moderate_policy(store, agent):
     """Register a test agent with the moderate policy template applied."""
     template = DEFAULT_POLICIES["moderate"]
-    store.save_policy({
-        "name": template["name"],
-        "description": template.get("description", ""),
-        "agent_id": agent["id"],
-        "scope": "agent",
-        "priority": 50,
-        "rules": template["rules"],
-    })
+    store.save_policy(
+        {
+            "name": template["name"],
+            "description": template.get("description", ""),
+            "agent_id": agent["id"],
+            "scope": "agent",
+            "priority": 50,
+            "rules": template["rules"],
+        }
+    )
     return agent

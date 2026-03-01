@@ -26,7 +26,6 @@ import json
 import logging
 import os
 import sys
-from typing import Optional
 
 LOG_DIR = os.path.expanduser(
     os.environ.get("GUARDRAIL_LOG_DIR", "~/.agent-guardrail/logs")
@@ -79,10 +78,10 @@ def cmd_register(args) -> None:
         framework=args.framework or "",
         description=args.description or "",
     )
-    print(f"\n  Agent registered:")
+    print("\n  Agent registered:")
     print(f"    ID:      {result['id']}")
     print(f"    API Key: {result['api_key']}")
-    print(f"\n  Save the API key -- it won't be shown again.")
+    print("\n  Save the API key -- it won't be shown again.")
 
 
 def cmd_kill(args) -> None:
@@ -94,7 +93,7 @@ def cmd_kill(args) -> None:
     if ok:
         print(f"  Kill switch ACTIVATED for {args.agent_id}")
     else:
-        print(f"  Failed -- agent not found?")
+        print("  Failed -- agent not found?")
 
 
 def cmd_unkill(args) -> None:
@@ -106,7 +105,7 @@ def cmd_unkill(args) -> None:
     if ok:
         print(f"  Kill switch REVOKED for {args.agent_id}")
     else:
-        print(f"  Failed -- agent not found?")
+        print("  Failed -- agent not found?")
 
 
 def cmd_policies(args) -> None:
@@ -286,7 +285,7 @@ def cmd_eval(args) -> None:
         cost_usd=args.cost or 0.0,
     )
 
-    print(f"\n  Evaluation Result:")
+    print("\n  Evaluation Result:")
     print(f"    Decision:  {decision.decision}")
     print(f"    Reason:    {decision.reason}")
     print(f"    Risk:      {decision.risk_score:.2f}")
@@ -314,7 +313,7 @@ def cmd_stats(args) -> None:
 
     by_decision = s.get("actions_by_decision", {})
     if by_decision:
-        print(f"\n  Actions by decision:")
+        print("\n  Actions by decision:")
         for dec, cnt in by_decision.items():
             print(f"    {dec:20} {cnt}")
 

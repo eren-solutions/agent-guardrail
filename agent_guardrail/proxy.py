@@ -32,11 +32,10 @@ Authentication:
 """
 
 import argparse
-import json
 import logging
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger("guardrail-proxy")
 
@@ -44,7 +43,7 @@ logger = logging.getLogger("guardrail-proxy")
 def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
     """Create a standalone FastAPI app for the Guardrail Gateway."""
     try:
-        from fastapi import FastAPI, HTTPException, Request, Depends
+        from fastapi import FastAPI, HTTPException, Request
         from fastapi.middleware.cors import CORSMiddleware
         from pydantic import BaseModel, Field
     except ImportError:
@@ -320,8 +319,8 @@ def main():
 
     app = create_app(db_path=args.db, admin_key=args.admin_key)
 
-    print(f"\n  Agent Guardrail Gateway")
-    print(f"  =======================")
+    print("\n  Agent Guardrail Gateway")
+    print("  =======================")
     print(f"  Port:     {args.port}")
     print(f"  DB:       {args.db or 'default (~/.agent-guardrail/guardrail.db)'}")
     print(f"  Admin:    {'configured' if args.admin_key or os.environ.get('GUARDRAIL_ADMIN_KEY') else 'open (no key)'}")

@@ -249,6 +249,9 @@ class PolicyEngine:
         detail: Optional[Dict] = None,
     ) -> PolicyDecision:
         """Evaluate an action and record it to the flight recorder."""
+        # Clamp cost before both evaluate and record (defense in depth)
+        cost_usd = max(0.0, cost_usd)
+
         decision = self.evaluate(
             agent_id=agent_id,
             action_type=action_type,

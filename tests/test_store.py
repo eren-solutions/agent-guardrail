@@ -239,6 +239,39 @@ class TestApprovals:
         assert len(approvals) == 0
 
 
+class TestFieldWhitelist:
+    """S-01: Verify column name injection is blocked."""
+
+    def test_update_agent_rejects_invalid_fields(self, store, agent):
+        with pytest.raises(ValueError, match="Invalid agent fields"):
+            store.update_agent(agent["id"], **{"id = ''; DROP TABLE guardrail_agents; --": "x"})
+
+    def test_update_agent_allows_valid_fields(self, store, agent):
+        result = store.update_agent(agent["id"], name="new-name", framework="crewai")
+        assert result is True
+        fetched = store.get_agent(agent["id"])
+        assert fetched["name"] == "new-name"
+        assert fetched["framework"] == "crewai"
+
+    def test_update_agent_returns_false_for_nonexistent(self, store):
+        result = store.update_agent("nonexistent-id", name="whatever")
+        assert result is False
+
+    def test_update_policy_rejects_invalid_fields(self, store):
+        pid = store.save_policy({"name": "test-policy"})
+        with pytest.raises(ValueError, match="Invalid policy fields"):
+            store.update_policy(pid, **{"1; DROP TABLE guardrail_policies; --": "x"})
+
+    def test_update_policy_allows_valid_fields(self, store):
+        pid = store.save_policy({"name": "test-policy"})
+        result = store.update_policy(pid, name="updated-policy", priority=10)
+        assert result is True
+
+    def test_update_policy_returns_false_for_nonexistent(self, store):
+        result = store.update_policy("nonexistent-id", name="whatever")
+        assert result is False
+
+
 class TestStats:
     def test_stats_empty(self, store):
         s = store.stats()

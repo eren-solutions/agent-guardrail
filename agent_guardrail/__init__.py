@@ -17,7 +17,7 @@ Components:
 from .policy import PolicyEngine, PolicyDecision, DEFAULT_POLICIES
 from .store import GuardrailStore
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = [
     "PolicyEngine",
     "PolicyDecision",

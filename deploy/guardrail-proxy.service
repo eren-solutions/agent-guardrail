@@ -7,7 +7,7 @@ Type=simple
 User=dembe
 WorkingDirectory=/Users/dembe/Documents/AI/agent-guardrail
 ExecStart=/opt/homebrew/bin/python3 -m agent_guardrail.proxy --port 8300 --host 10.0.0.2
-Environment=GUARDRAIL_ADMIN_KEY=
+Environment=GUARDRAIL_ADMIN_KEY=CHANGE_ME_BEFORE_DEPLOYING
 Environment=GUARDRAIL_DB=/Users/dembe/.agent-guardrail/guardrail.db
 Restart=on-failure
 RestartSec=5

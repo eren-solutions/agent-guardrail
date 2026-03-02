@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-guardrail"
-version = "0.1.0"
+version = "0.1.1"
 description = "Action-level governance for AI agents -- control what they DO, not what they SAY"
 readme = "README.md"
 license = "MIT"

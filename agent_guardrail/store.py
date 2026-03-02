@@ -234,18 +234,23 @@ class GuardrailStore:
         finally:
             conn.close()
 
+    _AGENT_FIELDS = {"name", "framework", "description", "enabled", "killed", "metadata"}
+
     def update_agent(self, agent_id: str, **fields) -> bool:
         self._ensure_tables()
         if not fields:
             return False
+        invalid = set(fields.keys()) - self._AGENT_FIELDS
+        if invalid:
+            raise ValueError(f"Invalid agent fields: {invalid}")
         conn = self._db()
         try:
             fields["updated_at"] = datetime.now(timezone.utc).isoformat()
             set_clause = ", ".join(f"{k} = ?" for k in fields)
             values = list(fields.values()) + [agent_id]
-            conn.execute(f"UPDATE guardrail_agents SET {set_clause} WHERE id = ?", values)
+            cur = conn.execute(f"UPDATE guardrail_agents SET {set_clause} WHERE id = ?", values)
             conn.commit()
-            return True
+            return cur.rowcount > 0
         finally:
             conn.close()
 
@@ -313,10 +318,15 @@ class GuardrailStore:
         finally:
             conn.close()
 
+    _POLICY_FIELDS = {"name", "description", "agent_id", "scope", "priority", "enabled", "rules"}
+
     def update_policy(self, policy_id: str, **fields) -> bool:
         self._ensure_tables()
         if not fields:
             return False
+        invalid = set(fields.keys()) - self._POLICY_FIELDS
+        if invalid:
+            raise ValueError(f"Invalid policy fields: {invalid}")
         conn = self._db()
         try:
             fields["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -324,9 +334,9 @@ class GuardrailStore:
                 fields["rules"] = json.dumps(fields["rules"])
             set_clause = ", ".join(f"{k} = ?" for k in fields)
             values = list(fields.values()) + [policy_id]
-            conn.execute(f"UPDATE guardrail_policies SET {set_clause} WHERE id = ?", values)
+            cur = conn.execute(f"UPDATE guardrail_policies SET {set_clause} WHERE id = ?", values)
             conn.commit()
-            return True
+            return cur.rowcount > 0
         finally:
             conn.close()
 

@@ -33,6 +33,7 @@ Decision flow:
 
 import fnmatch
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -114,6 +115,16 @@ class PolicyEngine:
             return PolicyDecision(decision="deny", reason="Kill switch active", risk_score=1.0)
         if not agent.get("enabled"):
             return PolicyDecision(decision="deny", reason="Agent disabled")
+
+        # Normalize target to prevent path traversal bypass on denylists
+        if target:
+            target = os.path.normpath(target)
+            # normpath preserves leading // on POSIX (implementation-defined) — collapse it
+            if target.startswith("//") and not target.startswith("///"):
+                target = target[1:]
+
+        # Clamp cost to non-negative (prevent spend cap bypass via negative cost)
+        cost_usd = max(0.0, cost_usd)
 
         # 2. Get applicable policies (global + agent-specific, ordered by priority)
         policies = self._store.get_policies(agent_id=agent_id)

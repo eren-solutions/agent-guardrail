@@ -228,6 +228,75 @@ class TestRiskThreshold:
         assert decision.decision == "allow"
 
 
+class TestPathTraversalPrevention:
+    """S-11: Verify path traversal cannot bypass denylists."""
+
+    def test_traversal_still_denied(self, store, agent, engine):
+        store.save_policy(
+            {
+                "name": "no-etc",
+                "agent_id": agent["id"],
+                "rules": {"target_denylist": ["/etc/*"]},
+            }
+        )
+        # This path normalizes to /etc/shadow
+        decision = engine.evaluate(agent["id"], "read_file", target="/workspace/../../etc/shadow")
+        assert decision.decision == "deny"
+
+    def test_double_slash_still_denied(self, store, agent, engine):
+        store.save_policy(
+            {
+                "name": "no-etc",
+                "agent_id": agent["id"],
+                "rules": {"target_denylist": ["/etc/*"]},
+            }
+        )
+        decision = engine.evaluate(agent["id"], "read_file", target="//etc/shadow")
+        assert decision.decision == "deny"
+
+    def test_dot_dot_prefix_still_denied(self, store, agent, engine):
+        store.save_policy(
+            {
+                "name": "no-etc",
+                "agent_id": agent["id"],
+                "rules": {"target_denylist": ["/etc/*"]},
+            }
+        )
+        decision = engine.evaluate(agent["id"], "read_file", target="/etc/../etc/shadow")
+        assert decision.decision == "deny"
+
+
+class TestNegativeCostPrevention:
+    """S-08: Verify negative cost cannot bypass spend caps."""
+
+    def test_negative_cost_clamped_to_zero(self, store, agent, engine):
+        store.save_policy(
+            {
+                "name": "budget",
+                "agent_id": agent["id"],
+                "rules": {"spend_cap_daily_usd": 1.0},
+            }
+        )
+        # Record spend near the cap
+        store.record_action(
+            {
+                "agent_id": agent["id"],
+                "action_type": "api_call",
+                "decision": "allow",
+                "cost_usd": 0.95,
+            }
+        )
+        # Attempt to use negative cost to reduce spend — should be clamped to 0
+        decision = engine.evaluate(agent["id"], "api_call", cost_usd=-1000.0)
+        # With negative clamped to 0, current spend 0.95 + 0.0 = 0.95 < 1.0 -> allow
+        assert decision.decision == "allow"
+
+        # Now try with cost that would exceed cap
+        decision = engine.evaluate(agent["id"], "api_call", cost_usd=0.10)
+        assert decision.decision == "deny"
+        assert "Daily spend cap" in decision.reason
+
+
 class TestNetworkDenylist:
     def test_deny_network_target(self, store, agent, engine):
         store.save_policy(

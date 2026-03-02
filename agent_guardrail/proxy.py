@@ -32,6 +32,7 @@ Authentication:
 """
 
 import argparse
+import hmac
 import logging
 import os
 import sys
@@ -56,17 +57,28 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
     store = GuardrailStore(db_path=db_path)
     engine = PolicyEngine(store)
 
-    _admin_key = admin_key or os.environ.get("GUARDRAIL_ADMIN_KEY", "")
+    _admin_key = (admin_key or os.environ.get("GUARDRAIL_ADMIN_KEY", "")).strip()
+
+    if not _admin_key:
+        logger.warning(
+            "WARNING: No admin key configured. Admin endpoints are UNPROTECTED. "
+            "Set --admin-key or GUARDRAIL_ADMIN_KEY for production use."
+        )
+
+    _cors_origins = os.environ.get("GUARDRAIL_CORS_ORIGINS", "").strip()
+    cors_origins = (
+        [o.strip() for o in _cors_origins.split(",") if o.strip()] if _cors_origins else []
+    )
 
     app = FastAPI(
         title="Agent Guardrail Gateway",
         description="Action-level governance for AI agents",
-        version="0.1.0",
+        version="0.1.1",
     )
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=cors_origins or ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -78,7 +90,7 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
         api_key = request.headers.get("X-API-Key", "")
         admin = request.headers.get("X-Admin-Key", "")
 
-        if _admin_key and admin == _admin_key:
+        if _admin_key and admin and hmac.compare_digest(admin, _admin_key):
             return {"role": "admin"}
 
         if api_key:
@@ -91,15 +103,15 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
     def _require_admin(request: Request) -> None:
         admin = request.headers.get("X-Admin-Key", "")
         if not _admin_key:
-            return  # No admin key configured -> open access
-        if admin != _admin_key:
+            return  # No admin key configured -> open access (warned at startup)
+        if not admin or not hmac.compare_digest(admin, _admin_key):
             raise HTTPException(status_code=403, detail="Admin key required")
 
     # -- Health --------------------------------------------------------
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "service": "agent-guardrail", "version": "0.1.0"}
+        return {"status": "ok", "service": "agent-guardrail", "version": "0.1.1"}
 
     # -- Core: Evaluate ------------------------------------------------
 
@@ -108,7 +120,7 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
         action_type: str = Field(..., min_length=1)
         tool_name: Optional[str] = None
         target: Optional[str] = None
-        cost_usd: float = 0.0
+        cost_usd: float = Field(default=0.0, ge=0.0)
         session_id: Optional[str] = None
         detail: Optional[Dict] = None
         record: bool = True

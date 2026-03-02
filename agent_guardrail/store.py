@@ -129,6 +129,51 @@ class GuardrailStore:
                 )
             """)
 
+            # Billing: credit balances per agent
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS billing_credits (
+                    agent_id        TEXT PRIMARY KEY,
+                    credit_balance  INTEGER NOT NULL DEFAULT 0,
+                    free_used_today INTEGER NOT NULL DEFAULT 0,
+                    free_reset_date TEXT NOT NULL,
+                    lifetime_evals  INTEGER NOT NULL DEFAULT 0,
+                    created_at      TEXT NOT NULL,
+                    updated_at      TEXT NOT NULL
+                )
+            """)
+
+            # Billing: BTC payment records
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS billing_payments (
+                    id              TEXT PRIMARY KEY,
+                    agent_id        TEXT NOT NULL,
+                    btc_address     TEXT UNIQUE,
+                    pack_id         TEXT NOT NULL,
+                    credits         INTEGER NOT NULL,
+                    price_usd       REAL NOT NULL,
+                    price_btc       REAL,
+                    price_satoshi   INTEGER,
+                    status          TEXT NOT NULL DEFAULT 'pending',
+                    txid            TEXT,
+                    expires_at      TEXT,
+                    created_at      TEXT NOT NULL,
+                    updated_at      TEXT NOT NULL
+                )
+            """)
+
+            # Billing: credit transaction ledger
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS billing_ledger (
+                    id              TEXT PRIMARY KEY,
+                    agent_id        TEXT NOT NULL,
+                    delta           INTEGER NOT NULL,
+                    reason          TEXT NOT NULL,
+                    balance_after   INTEGER NOT NULL,
+                    payment_id      TEXT,
+                    created_at      TEXT NOT NULL
+                )
+            """)
+
             # Indices
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_actions_agent ON guardrail_actions(agent_id)"
@@ -156,6 +201,24 @@ class GuardrailStore:
             )
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_approvals_status ON guardrail_approvals(status)"
+            )
+
+            # Billing indices
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_billing_payments_agent "
+                "ON billing_payments(agent_id)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_billing_payments_addr "
+                "ON billing_payments(btc_address)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_billing_payments_status "
+                "ON billing_payments(status)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_billing_ledger_agent "
+                "ON billing_ledger(agent_id, created_at DESC)"
             )
 
             conn.commit()

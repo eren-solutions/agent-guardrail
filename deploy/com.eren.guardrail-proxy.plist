@@ -24,6 +24,10 @@
         <string>/Users/dembe/.agent-guardrail/guardrail.db</string>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>BLOCKONOMICS_API_KEY</key>
+        <string>6HB5it9dD4PIa4Mh9MmArrtUeWtv4lC1K6IGFwRbKQs</string>
+        <key>BLOCKONOMICS_WEBHOOK_SECRET</key>
+        <string>9iyZR4qws_HhqwKJBGvlLJaX75sj6hY___MUoiFuSmg</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>

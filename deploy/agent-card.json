@@ -1,8 +1,8 @@
 {
   "name": "Agent Guardrail Gateway",
   "description": "Action-level governance for AI agents. Evaluate actions against policies before execution. Supports allowlists, denylists, spend caps, kill switch, and full flight recording.",
-  "url": "https://guardrail.your-domain.com",
-  "version": "0.1.0",
+  "url": "http://157.230.82.223/guardrail",
+  "version": "0.1.1",
   "protocol": "a2a",
   "capabilities": {
     "streaming": false,

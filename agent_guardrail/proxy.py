@@ -25,6 +25,7 @@ Endpoints:
     GET  /v1/stats             -- Statistics
     GET  /v1/templates         -- Default policy templates
     GET  /health               -- Health check
+    GET  /.well-known/agent-card.json -- A2A agent card (public)
 
 Authentication:
     Agents authenticate via X-API-Key header (the key returned at registration).
@@ -112,6 +113,112 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
     @app.get("/health")
     async def health():
         return {"status": "ok", "service": "agent-guardrail", "version": "0.1.1"}
+
+    # -- Agent Card (A2A discovery) ------------------------------------
+
+    @app.get("/.well-known/agent-card.json")
+    async def agent_card():
+        return {
+            "name": "Agent Guardrail Gateway",
+            "description": (
+                "Action-level governance for AI agents. Evaluate actions against "
+                "policies before execution. Supports allowlists, denylists, spend "
+                "caps, kill switch, and full flight recording."
+            ),
+            "url": "http://157.230.82.223/guardrail",
+            "version": "0.1.1",
+            "protocol": "a2a",
+            "capabilities": {"streaming": False, "pushNotifications": False},
+            "skills": [
+                {
+                    "name": "evaluate_action",
+                    "description": (
+                        "Evaluate an agent action against configured policies. "
+                        "Returns allow/deny/require_approval with reason and risk score."
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "agent_id": {
+                                "type": "string",
+                                "description": "Registered agent ID",
+                            },
+                            "action_type": {
+                                "type": "string",
+                                "description": (
+                                    "Action category: bash, read_file, write_file, "
+                                    "network_request, api_call, delete, install, sudo, "
+                                    "exec, spawn_agent"
+                                ),
+                            },
+                            "tool_name": {
+                                "type": "string",
+                                "description": "Specific tool being invoked",
+                            },
+                            "target": {
+                                "type": "string",
+                                "description": "File path, URL, or other target",
+                            },
+                            "cost_usd": {
+                                "type": "number",
+                                "description": "Estimated cost of this action in USD",
+                            },
+                        },
+                        "required": ["agent_id", "action_type"],
+                    },
+                    "outputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "decision": {
+                                "type": "string",
+                                "enum": ["allow", "deny", "require_approval"],
+                            },
+                            "reason": {"type": "string"},
+                            "risk_score": {"type": "number"},
+                            "policy_id": {"type": "string"},
+                        },
+                    },
+                },
+                {
+                    "name": "register_agent",
+                    "description": (
+                        "Register a new agent in the guardrail system. "
+                        "Returns agent ID and API key."
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Agent name"},
+                            "framework": {
+                                "type": "string",
+                                "description": (
+                                    "Agent framework (langchain, crewai, autogen, etc)"
+                                ),
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Agent description",
+                            },
+                        },
+                        "required": ["name"],
+                    },
+                },
+                {
+                    "name": "agent_stats",
+                    "description": (
+                        "Get aggregate statistics: active agents, total actions, "
+                        "spend, decisions by type."
+                    ),
+                    "inputSchema": {"type": "object", "properties": {}},
+                },
+            ],
+            "authentication": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-API-Key",
+                "description": "Agent API key (returned at registration) or admin key",
+            },
+        }
 
     # -- Core: Evaluate ------------------------------------------------
 

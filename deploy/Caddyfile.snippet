@@ -1,8 +1,13 @@
-# Add this block to the existing Caddy config on the VPS
-# After the audit-proxy block
+# Add these blocks to the existing Caddy config on the VPS
+# Inside the :80 and/or HTTPS server blocks, BEFORE the catch-all `handle {}`
 
-# Agent Guardrail Proxy
-# Route: guardrail.your-domain.com -> WireGuard -> Mac:8300
-guardrail.your-domain.com {
+# Guardrail proxy (path-based routing via WireGuard tunnel)
+handle /guardrail/* {
+    uri strip_prefix /guardrail
+    reverse_proxy 10.0.0.2:8300
+}
+
+# Agent card discovery (A2A protocol)
+handle /.well-known/agent-card.json {
     reverse_proxy 10.0.0.2:8300
 }

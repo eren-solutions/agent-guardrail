@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.eren.guardrail-proxy</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>-m</string>
+        <string>agent_guardrail.proxy</string>
+        <string>--port</string>
+        <string>8300</string>
+        <string>--host</string>
+        <string>10.0.0.2</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/dembe/Documents/AI/agent-guardrail</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>GUARDRAIL_ADMIN_KEY</key>
+        <string>KkJa_eAPpQL3_E6MyFI18sWwtw1uthMwO1ILIxK-eCw</string>
+        <key>GUARDRAIL_DB</key>
+        <string>/Users/dembe/.agent-guardrail/guardrail.db</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/dembe/r2/logs/guardrail-proxy.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dembe/r2/logs/guardrail-proxy.log</string>
+</dict>
+</plist>

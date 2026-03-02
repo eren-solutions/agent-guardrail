@@ -33,6 +33,7 @@ Agent Framework --> Agent Guardrail --> {allow, deny, require_approval}
 - **Approval Gates** — route risky actions to human review
 - **Risk Scoring** — automatic risk assessment per action type
 - **3 Templates** — restrictive, moderate, permissive (apply in one command)
+- **Pay-per-eval Billing** — free tier + BTC credit packs via Blockonomics
 
 **Zero dependencies.** Python stdlib only. SQLite for storage.
 
@@ -194,6 +195,39 @@ curl -X POST http://localhost:8300/v1/evaluate \
 
 Full API docs at `http://localhost:8300/docs` (Swagger UI).
 
+## Billing & Pricing
+
+Free tier included. Pay with Bitcoin when you need more.
+
+| Tier | Evaluations | Price | Per Eval |
+|------|-------------|-------|----------|
+| **Free** | 100/day per agent | $0 | $0 |
+| **Starter** | 1,000 | $10 | $0.010 |
+| **Growth** | 5,000 | $40 | $0.008 |
+| **Scale** | 25,000 | $150 | $0.006 |
+
+Credits are prepaid and never expire. Admin-authenticated requests bypass billing entirely.
+
+**How it works:**
+
+```bash
+# Check your balance
+curl http://localhost:8300/v1/billing/balance \
+  -H "X-API-Key: gw_your_agent_key"
+
+# Buy credits (returns a BTC address + amount)
+curl -X POST http://localhost:8300/v1/billing/checkout \
+  -H "X-API-Key: gw_your_agent_key" \
+  -d '{"pack_id": "pack_1000"}'
+# -> {"btc_address": "bc1q...", "amount_btc": 0.00015, "amount_satoshi": 15000, ...}
+
+# Pay the BTC address -> webhook confirms -> credits granted automatically
+```
+
+When free tier is exhausted and no credits remain, `/v1/evaluate` returns **402 Payment Required** with a link to available packs.
+
+**Self-hosted billing:** Set `BLOCKONOMICS_API_KEY` and `BLOCKONOMICS_WEBHOOK_SECRET` environment variables. Without these, billing is disabled and all evaluations proceed without metering (backward compatible).
+
 ## Policy Rules Reference
 
 ```python
@@ -241,16 +275,36 @@ DEFAULT ──> ALLOW
 
 ```
 +-------------------+     +------------------+     +-----------------+
-|  Agent Framework  |---->|  Policy Engine   |---->|  Flight Recorder|
-|  (LangChain,     |     |  (evaluate)      |     |  (SQLite)       |
-|   CrewAI, custom) |     +------------------+     +-----------------+
-+-------------------+            |
+|  Agent Framework  |---->|  Billing Check   |---->|  Policy Engine  |
+|  (LangChain,     |     |  (free tier /    |     |  (evaluate)     |
+|   CrewAI, custom) |     |   credits)       |     +-----------------+
++-------------------+     +------------------+            |
+                                 |                        v
+                                 |           +------------------------+
+                          402 if empty       |  Decision:             |
+                                             |  allow / deny /        |
+                                             |  require_approval      |
+                                             +------------------------+
+                                                         |
+                                                         v
+                                             +-----------------+
+                                             |  Flight Recorder|
+                                             |  (SQLite)       |
+                                             +-----------------+
+
++-------------------+     +------------------+
+|  BTC Payment      |---->|  Blockonomics    |
+|  (checkout)       |     |  (xpub-derived   |
++-------------------+     |   addresses)     |
+                          +------------------+
+                                 |
+                          webhook (status=2)
+                                 |
                                  v
-                    +------------------------+
-                    |  Decision:             |
-                    |  allow / deny /        |
-                    |  require_approval      |
-                    +------------------------+
+                          +------------------+
+                          |  Credit Grant    |
+                          |  (billing_ledger)|
+                          +------------------+
 ```
 
 ## Comparison
@@ -261,6 +315,7 @@ DEFAULT ──> ALLOW
 | Spend caps | Yes | No | No | Manual |
 | Kill switch | Yes | No | No | Manual |
 | Flight recorder | Yes | No | No | Manual |
+| Pay-per-eval billing | Yes (BTC) | No | No | Manual |
 | Zero dependencies | Yes | No (many) | No (many) | Varies |
 | Framework agnostic | Yes | LangChain-focused | LangChain-focused | Yes |
 | Hosted API | Yes | Cloud only | No | Manual |
@@ -290,6 +345,9 @@ agent-guardrail stats                       # Statistics
 | `GUARDRAIL_DB` | `~/.agent-guardrail/guardrail.db` | SQLite database path |
 | `GUARDRAIL_LOG_DIR` | `~/.agent-guardrail/logs` | CLI log directory |
 | `GUARDRAIL_ADMIN_KEY` | (none) | Admin API key for proxy |
+| `BLOCKONOMICS_API_KEY` | (none) | Blockonomics Store API key (enables billing) |
+| `BLOCKONOMICS_WEBHOOK_SECRET` | (none) | Secret for webhook verification |
+| `GUARDRAIL_BILLING_ENABLED` | `true` | Set `false` to disable billing even with API key |
 
 ## License
 

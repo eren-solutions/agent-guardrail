@@ -15,9 +15,7 @@ startCommand:
         type: string
         title: "Admin API Key"
         description: "Admin API key for authenticating to the guardrail endpoint"
-    required:
-      - endpoint
-      - apiKey
+    required: []
   commandFunction: |-
     (config) => ({
       command: "python3",

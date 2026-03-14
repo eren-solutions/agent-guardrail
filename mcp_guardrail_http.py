@@ -16,9 +16,10 @@ import json
 import os
 import urllib.request
 import urllib.error
-from typing import Any
+from typing import Any, Annotated
 
 from mcp.server.fastmcp import FastMCP
+from pydantic import Field
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -80,24 +81,13 @@ def _api_call(method: str, path: str, data: dict | None = None) -> dict[str, Any
     "openWorldHint": False,
 })
 def evaluate_action(
-    agent_id: str,
-    action_type: str,
-    tool_name: str = "",
-    target: str = "",
-    cost_usd: float = 0.0,
+    agent_id: Annotated[str, Field(description="Unique identifier of the agent. Must be registered first via register_agent.")],
+    action_type: Annotated[str, Field(description="Category of action: tool_call, shell, http, file_read, file_write, database, api_call.")],
+    tool_name: Annotated[str, Field(description="Name of the tool being invoked, e.g. bash, write_file, curl.")] = "",
+    target: Annotated[str, Field(description="Target resource path or URL, e.g. /etc/passwd, https://api.example.com.")] = "",
+    cost_usd: Annotated[float, Field(description="Estimated cost in USD for spend tracking and budget enforcement.")] = 0.0,
 ) -> dict:
-    """Evaluate whether an agent action is allowed by the guardrail policy. Call this BEFORE executing any tool, shell command, or HTTP request.
-
-    Args:
-        agent_id: Unique identifier of the agent requesting the action. Must be registered first via register_agent.
-        action_type: Category of action being evaluated. One of: "tool_call", "shell", "http", "file_read", "file_write", "database", "api_call".
-        tool_name: Name of the specific tool being invoked, e.g. "bash", "write_file", "curl". Leave empty for non-tool actions.
-        target: Target resource path or URL, e.g. "/etc/passwd", "https://api.example.com". Leave empty if not applicable.
-        cost_usd: Estimated cost of the action in USD. Used for spend tracking and budget enforcement. Defaults to 0.
-
-    Returns:
-        Evaluation verdict with fields: allowed (bool), reason (str), policy_name (str).
-    """
+    """Evaluate whether an agent action is allowed by the guardrail policy. Call this BEFORE executing any tool, shell command, or HTTP request."""
     payload: dict[str, Any] = {
         "agent_id": agent_id,
         "action_type": action_type,
@@ -120,20 +110,11 @@ def evaluate_action(
     "openWorldHint": False,
 })
 def register_agent(
-    name: str,
-    framework: str = "",
-    description: str = "",
+    name: Annotated[str, Field(description="Human-readable name for the agent, e.g. code-reviewer, data-analyst.")],
+    framework: Annotated[str, Field(description="Agent framework: langchain, autogen, crewai, claude-code.")] = "",
+    description: Annotated[str, Field(description="Short description of what this agent does.")] = "",
 ) -> dict:
-    """Register a new agent with the guardrail system. Must be called before evaluate_action.
-
-    Args:
-        name: Human-readable name for the agent, e.g. "code-reviewer", "data-analyst".
-        framework: Agent framework being used, e.g. "langchain", "autogen", "crewai", "claude-code". Leave empty if unknown.
-        description: Short description of what this agent does, e.g. "Reviews pull requests for security issues".
-
-    Returns:
-        Registered agent record including its assigned agent_id. Use this ID in evaluate_action calls.
-    """
+    """Register a new agent with the guardrail system. Must be called before evaluate_action."""
     payload: dict[str, Any] = {"name": name}
     if framework:
         payload["framework"] = framework
@@ -182,15 +163,10 @@ def get_stats() -> dict:
     "idempotentHint": True,
     "openWorldHint": False,
 })
-def kill_agent(agent_id: str) -> dict:
-    """Emergency kill-switch: immediately block ALL actions for an agent. Use when an agent is misbehaving or compromised.
-
-    Args:
-        agent_id: Unique identifier of the agent to kill. All subsequent evaluate_action calls for this agent will be denied.
-
-    Returns:
-        Confirmation with the agent's updated status.
-    """
+def kill_agent(
+    agent_id: Annotated[str, Field(description="Unique identifier of the agent to kill. All subsequent actions will be denied.")],
+) -> dict:
+    """Emergency kill-switch: immediately block ALL actions for an agent. Use when an agent is misbehaving or compromised."""
     return _api_call("POST", f"/v1/agents/{agent_id}/kill")
 
 
@@ -201,15 +177,10 @@ def kill_agent(agent_id: str) -> dict:
     "idempotentHint": True,
     "openWorldHint": False,
 })
-def unkill_agent(agent_id: str) -> dict:
-    """Re-enable a previously killed agent, restoring its ability to have actions evaluated.
-
-    Args:
-        agent_id: Unique identifier of the agent to reactivate.
-
-    Returns:
-        Confirmation with the agent's updated status.
-    """
+def unkill_agent(
+    agent_id: Annotated[str, Field(description="Unique identifier of the agent to reactivate.")],
+) -> dict:
+    """Re-enable a previously killed agent, restoring its ability to have actions evaluated."""
     return _api_call("POST", f"/v1/agents/{agent_id}/unkill")
 
 

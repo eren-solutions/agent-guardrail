@@ -37,13 +37,6 @@ mcp = FastMCP(
         "first with register_agent, then evaluate their actions. Use kill_agent "
         "for emergency shutdowns."
     ),
-    description=(
-        "Action-level policy enforcement for AI agents — control what agents "
-        "DO, not just what they say. Evaluate actions against configurable "
-        "security policies before execution. Zero dependencies, Python 3.10+."
-    ),
-    homepage="https://github.com/eren-solutions/agent-guardrail",
-    version="0.1.2",
 )
 
 # ---------------------------------------------------------------------------

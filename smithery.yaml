@@ -1,3 +1,7 @@
+name: agent-guardrail
+description: "Action-level policy enforcement for AI agents — control what agents DO, not just what they say. Evaluate actions against configurable security policies before execution."
+homepage: "https://github.com/eren-solutions/agent-guardrail"
+icon: "https://raw.githubusercontent.com/eren-solutions/agent-guardrail/main/icon.svg"
 startCommand:
   type: stdio
   configSchema:
@@ -5,9 +9,11 @@ startCommand:
     properties:
       endpoint:
         type: string
+        title: "Guardrail API Endpoint"
         description: "Base URL of the Agent Guardrail API endpoint (e.g. https://guardrail.example.com)"
       apiKey:
         type: string
+        title: "Admin API Key"
         description: "Admin API key for authenticating to the guardrail endpoint"
     required:
       - endpoint

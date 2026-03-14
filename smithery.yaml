@@ -1,18 +1,23 @@
-runtime: "container"
 startCommand:
-  type: "http"
-configSchema:
-  type: "object"
-  properties:
-    apiKey:
-      type: "string"
-      description: "Admin API key for the Agent Guardrail endpoint"
-    endpoint:
-      type: "string"
-      description: "Guardrail API endpoint URL"
-  required:
-    - apiKey
-    - endpoint
-build:
-  dockerfile: "Dockerfile"
-  dockerBuildPath: "."
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      endpoint:
+        type: string
+        description: "Base URL of the Agent Guardrail API endpoint (e.g. https://guardrail.example.com)"
+      apiKey:
+        type: string
+        description: "Admin API key for authenticating to the guardrail endpoint"
+    required:
+      - endpoint
+      - apiKey
+  commandFunction: |-
+    (config) => ({
+      command: "python3",
+      args: ["mcp_guardrail_http.py", "--transport", "stdio"],
+      env: {
+        GUARDRAIL_ENDPOINT: config.endpoint,
+        GUARDRAIL_API_KEY: config.apiKey
+      }
+    })

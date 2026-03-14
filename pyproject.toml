@@ -13,7 +13,7 @@ authors = [
     {name = "Eren Solutions"},
 ]
 keywords = [
-    "ai", "agents", "guardrails", "governance", "safety",
+    "mcp", "ai", "agents", "guardrails", "governance", "safety",
     "policy", "langchain", "crewai", "autogen",
 ]
 classifiers = [

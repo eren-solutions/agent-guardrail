@@ -25,14 +25,16 @@ Endpoints:
     GET  /v1/spend/{agent_id}  -- Spend tracking
     GET  /v1/stats             -- Statistics
     GET  /v1/templates         -- Default policy templates
-    GET  /v1/billing/packs     -- Credit pack catalog (public)
-    GET  /v1/billing/balance   -- Agent credit balance
-    POST /v1/billing/checkout  -- Create BTC payment
-    GET  /v1/billing/payment/{id} -- Poll payment status
-    GET  /v1/billing/webhook   -- Blockonomics callback
-    POST /v1/billing/grant     -- Admin: manual credit grant
-    GET  /v1/billing/ledger/{agent_id} -- Admin: transaction history
-    GET  /pricing              -- Static pricing page
+    GET  /v1/billing/packs              -- Credit pack catalog (public)
+    GET  /v1/billing/balance            -- Agent credit balance
+    POST /v1/billing/checkout           -- Create BTC payment
+    GET  /v1/billing/payment/{id}       -- Poll payment status
+    GET  /v1/billing/webhook            -- Blockonomics callback
+    POST /v1/billing/stripe/checkout    -- Create Stripe Checkout Session
+    POST /v1/billing/stripe/webhook     -- Stripe webhook (signature-verified)
+    POST /v1/billing/grant              -- Admin: manual credit grant
+    GET  /v1/billing/ledger/{agent_id}  -- Admin: transaction history
+    GET  /pricing                       -- Static pricing page
     GET  /health               -- Health check
     GET  /.well-known/agent-card.json -- A2A agent card (public)
 
@@ -137,14 +139,20 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
     store = GuardrailStore(db_path=db_path)
     engine = PolicyEngine(store)
 
-    # Billing: enabled only if API key is set
+    # Billing: enabled if either Blockonomics or Stripe key is set
     _billing_api_key = os.environ.get("BLOCKONOMICS_API_KEY", "").strip()
+    _stripe_key = os.environ.get("STRIPE_SECRET_KEY", "").strip()
     billing: Optional[BillingManager] = None
-    if _billing_api_key:
+    if _billing_api_key or _stripe_key:
         billing = BillingManager(db_path=store.db_path)
-        logger.info("Billing enabled (Blockonomics)")
+        _providers = []
+        if _billing_api_key:
+            _providers.append("Blockonomics")
+        if _stripe_key:
+            _providers.append("Stripe")
+        logger.info("Billing enabled (%s)", ", ".join(_providers))
     else:
-        logger.info("Billing disabled (no BLOCKONOMICS_API_KEY)")
+        logger.info("Billing disabled (no BLOCKONOMICS_API_KEY or STRIPE_SECRET_KEY)")
 
     _admin_key = (admin_key or os.environ.get("GUARDRAIL_ADMIN_KEY", "")).strip()
 
@@ -517,11 +525,15 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
 
     @app.get("/v1/billing/packs")
     async def billing_packs():
-        """Public: list available credit packs."""
+        """Public: list available credit packs and payment methods."""
         return {
             "packs": list(CREDIT_PACKS.values()),
             "free_tier_daily": FREE_TIER_DAILY,
             "billing_enabled": billing is not None and billing.enabled,
+            "payment_methods": {
+                "btc": billing is not None and bool(os.environ.get("BLOCKONOMICS_API_KEY", "").strip()),
+                "stripe": billing is not None and billing.stripe_enabled if billing else False,
+            },
         }
 
     @app.get("/v1/billing/balance")
@@ -601,6 +613,77 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
 
         return result
 
+    # -- Stripe billing ------------------------------------------------
+
+    class StripeCheckoutRequest(BaseModel):
+        pack: str = Field(..., min_length=1, description="pack_1000 | pack_5000 | pack_25000")
+        agent_id: str = Field(..., min_length=1)
+
+    @app.post("/v1/billing/stripe/checkout")
+    async def stripe_checkout(request: Request, body: StripeCheckoutRequest):
+        """Agent or admin: create a Stripe Checkout Session.
+
+        Returns ``checkout_url`` (redirect the user there) and ``session_id``.
+        """
+        # Allow either agent auth (self-service) or admin auth
+        auth = _require_agent_or_admin(request)
+        if auth["role"] == "agent":
+            # Agents may only buy credits for themselves
+            if auth["agent"]["id"] != body.agent_id:
+                raise HTTPException(403, "Cannot purchase for another agent")
+
+        if not billing:
+            raise HTTPException(503, "Billing not configured")
+
+        if not billing.stripe_enabled:
+            raise HTTPException(503, "Stripe billing not configured (missing STRIPE_SECRET_KEY)")
+
+        if body.pack not in CREDIT_PACKS:
+            raise HTTPException(400, f"Unknown pack: {body.pack}")
+
+        try:
+            result = billing.create_stripe_checkout(body.agent_id, body.pack)
+            return result
+        except ImportError as e:
+            logger.error("Stripe package missing: %s", e)
+            raise HTTPException(503, "stripe package not installed — pip install agent-guardrail[stripe]")
+        except RuntimeError as e:
+            logger.error("Stripe checkout failed: %s", e)
+            raise HTTPException(502, f"Stripe error: {e}")
+
+    @app.post("/v1/billing/stripe/webhook")
+    async def stripe_webhook(request: Request):
+        """Stripe webhook endpoint — signature-verified, no auth header needed.
+
+        Handles ``checkout.session.completed`` and grants credits automatically.
+        Configure this URL in the Stripe dashboard as your webhook endpoint.
+        """
+        if not billing:
+            raise HTTPException(503, "Billing not configured")
+
+        if not billing.stripe_enabled:
+            raise HTTPException(503, "Stripe billing not configured")
+
+        payload = await request.body()
+        sig_header = request.headers.get("stripe-signature", "")
+
+        if not sig_header:
+            raise HTTPException(400, "Missing stripe-signature header")
+
+        try:
+            result = billing.handle_stripe_webhook(payload, sig_header)
+            return result
+        except ImportError as e:
+            logger.error("Stripe package missing: %s", e)
+            raise HTTPException(503, "stripe package not installed")
+        except ValueError as e:
+            # Signature verification failure
+            logger.warning("Stripe webhook signature invalid: %s", e)
+            raise HTTPException(400, "Invalid Stripe signature")
+        except RuntimeError as e:
+            logger.error("Stripe webhook error: %s", e)
+            raise HTTPException(502, f"Stripe webhook error: {e}")
+
     class GrantRequest(BaseModel):
         agent_id: str = Field(..., min_length=1)
         amount: int = Field(..., gt=0)
@@ -661,7 +744,17 @@ def main():
 
     app = create_app(db_path=args.db, admin_key=args.admin_key)
 
-    _has_billing = bool(os.environ.get("BLOCKONOMICS_API_KEY", "").strip())
+    _has_btc = bool(os.environ.get("BLOCKONOMICS_API_KEY", "").strip())
+    _has_stripe = bool(os.environ.get("STRIPE_SECRET_KEY", "").strip())
+    _billing_label: str
+    if _has_btc and _has_stripe:
+        _billing_label = "enabled (Blockonomics + Stripe)"
+    elif _has_btc:
+        _billing_label = "enabled (Blockonomics)"
+    elif _has_stripe:
+        _billing_label = "enabled (Stripe)"
+    else:
+        _billing_label = "disabled"
 
     print("\n  Agent Guardrail Gateway")
     print("  =======================")
@@ -670,7 +763,7 @@ def main():
     print(
         f"  Admin:    {'configured' if args.admin_key or os.environ.get('GUARDRAIL_ADMIN_KEY') else 'open (no key)'}"
     )
-    print(f"  Billing:  {'enabled (Blockonomics)' if _has_billing else 'disabled'}")
+    print(f"  Billing:  {_billing_label}")
     print(f"  Docs:     http://{args.host}:{args.port}/docs")
     print()
 

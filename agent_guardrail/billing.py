@@ -1,9 +1,11 @@
 """
-Billing Module — BTC Payments via Blockonomics
-===============================================
+Billing Module — BTC (Blockonomics) + Stripe Payments
+======================================================
 
 Pay-per-evaluation credits with free tier.
-Non-custodial BTC payments — no KYC, no traditional finance.
+Supports two payment paths:
+  - BTC via Blockonomics (non-custodial, no KYC)
+  - Card via Stripe Checkout (hosted page)
 
 Pricing:
     Free tier:  100 evaluations/day per agent (resets daily UTC)
@@ -11,8 +13,18 @@ Pricing:
     pack_5000:  5,000 evals — $40  ($0.008/eval)
     pack_25000: 25,000 evals — $150 ($0.006/eval)
 
-Graceful disable: if BLOCKONOMICS_API_KEY is not set, billing is off
-and all evaluations proceed without metering (backward compatible).
+Graceful disable: if neither BLOCKONOMICS_API_KEY nor STRIPE_SECRET_KEY
+is set, billing is off and all evaluations proceed without metering
+(backward compatible).
+
+Stripe env vars:
+    STRIPE_SECRET_KEY          -- sk_live_... or sk_test_...
+    STRIPE_WEBHOOK_SECRET      -- whsec_... (from Stripe dashboard)
+    STRIPE_PRICE_PACK_1000     -- price_... Stripe Price ID for pack_1000
+    STRIPE_PRICE_PACK_5000     -- price_... Stripe Price ID for pack_5000
+    STRIPE_PRICE_PACK_25000    -- price_... Stripe Price ID for pack_25000
+    STRIPE_SUCCESS_URL         -- redirect after payment (default: /billing/success)
+    STRIPE_CANCEL_URL          -- redirect on cancel  (default: /billing/cancel)
 """
 
 import json
@@ -375,6 +387,185 @@ class BillingManager:
             raise
         finally:
             conn.close()
+
+    # ------------------------------------------------------------------
+    # Stripe checkout
+    # ------------------------------------------------------------------
+
+    @property
+    def stripe_enabled(self) -> bool:
+        """True if Stripe secret key is configured."""
+        return bool(os.environ.get("STRIPE_SECRET_KEY", "").strip())
+
+    def create_stripe_checkout(
+        self,
+        agent_id: str,
+        pack_id: str,
+        success_url: Optional[str] = None,
+        cancel_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a Stripe Checkout Session for the given pack.
+
+        Returns a dict with ``checkout_url`` and ``session_id``.
+        Raises ImportError if the ``stripe`` package is not installed.
+        Raises RuntimeError on Stripe API errors.
+        """
+        try:
+            import stripe as stripe_lib
+        except ImportError as exc:
+            raise ImportError(
+                "stripe package is required: pip install agent-guardrail[stripe]"
+            ) from exc
+
+        if pack_id not in CREDIT_PACKS:
+            raise ValueError(f"Unknown pack: {pack_id}")
+
+        pack = CREDIT_PACKS[pack_id]
+        secret_key = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+        if not secret_key:
+            raise RuntimeError("STRIPE_SECRET_KEY is not configured")
+
+        # Map pack → Stripe Price ID
+        price_env_map = {
+            "pack_1000": "STRIPE_PRICE_PACK_1000",
+            "pack_5000": "STRIPE_PRICE_PACK_5000",
+            "pack_25000": "STRIPE_PRICE_PACK_25000",
+        }
+        price_id = os.environ.get(price_env_map[pack_id], "").strip()
+        if not price_id:
+            raise RuntimeError(
+                f"{price_env_map[pack_id]} is not configured. "
+                "Create a one-time price in the Stripe dashboard and set this env var."
+            )
+
+        _success = success_url or os.environ.get(
+            "STRIPE_SUCCESS_URL", "/billing/success?session_id={CHECKOUT_SESSION_ID}"
+        )
+        _cancel = cancel_url or os.environ.get("STRIPE_CANCEL_URL", "/billing/cancel")
+
+        stripe_lib.api_key = secret_key
+
+        try:
+            session = stripe_lib.checkout.Session.create(
+                mode="payment",
+                line_items=[{"price": price_id, "quantity": 1}],
+                metadata={"agent_id": agent_id, "pack_id": pack_id},
+                success_url=_success,
+                cancel_url=_cancel,
+            )
+        except stripe_lib.StripeError as exc:
+            raise RuntimeError(f"Stripe API error: {exc}") from exc
+
+        logger.info(
+            "Stripe checkout created: agent=%s pack=%s session=%s",
+            agent_id,
+            pack_id,
+            session.id,
+        )
+        return {
+            "checkout_url": session.url,
+            "session_id": session.id,
+            "pack": pack,
+        }
+
+    def handle_stripe_webhook(self, payload: bytes, sig_header: str) -> Dict[str, Any]:
+        """Verify and process a Stripe webhook event.
+
+        Handles ``checkout.session.completed`` — grants credits via
+        existing ``_grant_credits_internal``.
+
+        Returns a status dict. Raises ValueError on signature failure.
+        """
+        try:
+            import stripe as stripe_lib
+        except ImportError as exc:
+            raise ImportError(
+                "stripe package is required: pip install agent-guardrail[stripe]"
+            ) from exc
+
+        secret_key = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+        webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+
+        if not secret_key:
+            raise RuntimeError("STRIPE_SECRET_KEY is not configured")
+        if not webhook_secret:
+            raise RuntimeError("STRIPE_WEBHOOK_SECRET is not configured")
+
+        stripe_lib.api_key = secret_key
+
+        try:
+            event = stripe_lib.Webhook.construct_event(payload, sig_header, webhook_secret)
+        except stripe_lib.errors.SignatureVerificationError as exc:
+            raise ValueError(f"Invalid Stripe signature: {exc}") from exc
+
+        if event["type"] != "checkout.session.completed":
+            # Acknowledge but take no action for other event types
+            return {"status": "ignored", "event_type": event["type"]}
+
+        session_obj = event["data"]["object"]
+        metadata = session_obj.get("metadata") or {}
+        agent_id = metadata.get("agent_id", "")
+        pack_id = metadata.get("pack_id", "")
+
+        if not agent_id or not pack_id:
+            logger.warning(
+                "Stripe webhook missing metadata: agent_id=%r pack_id=%r session=%s",
+                agent_id,
+                pack_id,
+                session_obj.get("id"),
+            )
+            return {"status": "error", "error": "missing_metadata"}
+
+        if pack_id not in CREDIT_PACKS:
+            logger.warning("Stripe webhook unknown pack_id=%r", pack_id)
+            return {"status": "error", "error": f"unknown_pack: {pack_id}"}
+
+        pack = CREDIT_PACKS[pack_id]
+        credits = pack["credits"]
+        stripe_session_id = session_obj.get("id", "")
+
+        conn = self._db()
+        try:
+            # Idempotency: check if this Stripe session was already processed
+            existing = conn.execute(
+                "SELECT id FROM billing_ledger WHERE payment_id = ?",
+                (stripe_session_id,),
+            ).fetchone()
+
+            if existing:
+                logger.info(
+                    "Duplicate Stripe webhook for session %s — already granted",
+                    stripe_session_id,
+                )
+                return {"status": "already_confirmed", "session_id": stripe_session_id}
+
+            self._grant_credits_internal(
+                conn,
+                agent_id,
+                credits,
+                f"stripe:pack:{pack_id}",
+                stripe_session_id,
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+        logger.info(
+            "Stripe payment confirmed: %s credits for agent %s (session=%s)",
+            credits,
+            agent_id,
+            stripe_session_id,
+        )
+        return {
+            "status": "confirmed",
+            "agent_id": agent_id,
+            "pack_id": pack_id,
+            "credits_granted": credits,
+            "session_id": stripe_session_id,
+        }
 
     # ------------------------------------------------------------------
     # Admin: grant credits

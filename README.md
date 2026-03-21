@@ -1,5 +1,7 @@
 # Agent Guardrail
 
+<!-- mcp-name: io.github.JarvisOnM4/agent-guardrail -->
+
 **Action-level governance for AI agents — control what they DO, not what they SAY.**
 
 [![PyPI](https://img.shields.io/pypi/v/agent-guardrail)](https://pypi.org/project/agent-guardrail/)

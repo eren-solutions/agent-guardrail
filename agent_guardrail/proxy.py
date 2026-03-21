@@ -531,7 +531,8 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
             "free_tier_daily": FREE_TIER_DAILY,
             "billing_enabled": billing is not None and billing.enabled,
             "payment_methods": {
-                "btc": billing is not None and bool(os.environ.get("BLOCKONOMICS_API_KEY", "").strip()),
+                "btc": billing is not None
+                and bool(os.environ.get("BLOCKONOMICS_API_KEY", "").strip()),
                 "stripe": billing is not None and billing.stripe_enabled if billing else False,
             },
         }
@@ -646,7 +647,9 @@ def create_app(db_path: Optional[str] = None, admin_key: Optional[str] = None):
             return result
         except ImportError as e:
             logger.error("Stripe package missing: %s", e)
-            raise HTTPException(503, "stripe package not installed — pip install agent-guardrail[stripe]")
+            raise HTTPException(
+                503, "stripe package not installed — pip install agent-guardrail[stripe]"
+            )
         except RuntimeError as e:
             logger.error("Stripe checkout failed: %s", e)
             raise HTTPException(502, f"Stripe error: {e}")

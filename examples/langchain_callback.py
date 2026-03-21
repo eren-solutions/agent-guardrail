@@ -87,11 +87,14 @@ if __name__ == "__main__":
         # Register agent and apply moderate policy
         agent = store.register_agent(name="langchain-demo", framework="langchain")
         from agent_guardrail.policy import DEFAULT_POLICIES
-        store.save_policy({
-            "name": "moderate",
-            "agent_id": agent["id"],
-            "rules": DEFAULT_POLICIES["moderate"]["rules"],
-        })
+
+        store.save_policy(
+            {
+                "name": "moderate",
+                "agent_id": agent["id"],
+                "rules": DEFAULT_POLICIES["moderate"]["rules"],
+            }
+        )
 
         # Create callback
         callback = GuardrailCallback(

@@ -88,11 +88,14 @@ if __name__ == "__main__":
         # Register agent
         agent = store.register_agent(name="crewai-demo", framework="crewai")
         from agent_guardrail.policy import DEFAULT_POLICIES
-        store.save_policy({
-            "name": "moderate",
-            "agent_id": agent["id"],
-            "rules": DEFAULT_POLICIES["moderate"]["rules"],
-        })
+
+        store.save_policy(
+            {
+                "name": "moderate",
+                "agent_id": agent["id"],
+                "rules": DEFAULT_POLICIES["moderate"]["rules"],
+            }
+        )
 
         # Create guardrail
         guardrail = make_guardrail(

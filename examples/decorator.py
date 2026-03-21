@@ -76,6 +76,7 @@ def guardrail(
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -91,11 +92,14 @@ if __name__ == "__main__":
         # Register agent
         agent = store.register_agent(name="decorator-demo")
         from agent_guardrail.policy import DEFAULT_POLICIES
-        store.save_policy({
-            "name": "moderate",
-            "agent_id": agent["id"],
-            "rules": DEFAULT_POLICIES["moderate"]["rules"],
-        })
+
+        store.save_policy(
+            {
+                "name": "moderate",
+                "agent_id": agent["id"],
+                "rules": DEFAULT_POLICIES["moderate"]["rules"],
+            }
+        )
 
         # Define guarded functions
         @guardrail(agent["id"], action_type="read_file", db_path=db_path)

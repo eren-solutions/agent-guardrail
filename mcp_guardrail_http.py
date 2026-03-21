@@ -73,19 +73,40 @@ def _api_call(method: str, path: str, data: dict | None = None) -> dict[str, Any
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(annotations={
-    "title": "Evaluate Action",
-    "readOnlyHint": False,
-    "destructiveHint": False,
-    "idempotentHint": True,
-    "openWorldHint": False,
-})
+@mcp.tool(
+    annotations={
+        "title": "Evaluate Action",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+)
 def evaluate_action(
-    agent_id: Annotated[str, Field(description="Unique identifier of the agent. Must be registered first via register_agent.")],
-    action_type: Annotated[str, Field(description="Category of action: tool_call, shell, http, file_read, file_write, database, api_call.")],
-    tool_name: Annotated[str, Field(description="Name of the tool being invoked, e.g. bash, write_file, curl.")] = "",
-    target: Annotated[str, Field(description="Target resource path or URL, e.g. /etc/passwd, https://api.example.com.")] = "",
-    cost_usd: Annotated[float, Field(description="Estimated cost in USD for spend tracking and budget enforcement.")] = 0.0,
+    agent_id: Annotated[
+        str,
+        Field(
+            description="Unique identifier of the agent. Must be registered first via register_agent."
+        ),
+    ],
+    action_type: Annotated[
+        str,
+        Field(
+            description="Category of action: tool_call, shell, http, file_read, file_write, database, api_call."
+        ),
+    ],
+    tool_name: Annotated[
+        str, Field(description="Name of the tool being invoked, e.g. bash, write_file, curl.")
+    ] = "",
+    target: Annotated[
+        str,
+        Field(
+            description="Target resource path or URL, e.g. /etc/passwd, https://api.example.com."
+        ),
+    ] = "",
+    cost_usd: Annotated[
+        float, Field(description="Estimated cost in USD for spend tracking and budget enforcement.")
+    ] = 0.0,
 ) -> dict:
     """Evaluate whether an agent action is allowed by the guardrail policy. Call this BEFORE executing any tool, shell command, or HTTP request."""
     payload: dict[str, Any] = {
@@ -102,17 +123,26 @@ def evaluate_action(
     return _api_call("POST", "/v1/evaluate", payload)
 
 
-@mcp.tool(annotations={
-    "title": "Register Agent",
-    "readOnlyHint": False,
-    "destructiveHint": False,
-    "idempotentHint": False,
-    "openWorldHint": False,
-})
+@mcp.tool(
+    annotations={
+        "title": "Register Agent",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    }
+)
 def register_agent(
-    name: Annotated[str, Field(description="Human-readable name for the agent, e.g. code-reviewer, data-analyst.")],
-    framework: Annotated[str, Field(description="Agent framework: langchain, autogen, crewai, claude-code.")] = "",
-    description: Annotated[str, Field(description="Short description of what this agent does.")] = "",
+    name: Annotated[
+        str,
+        Field(description="Human-readable name for the agent, e.g. code-reviewer, data-analyst."),
+    ],
+    framework: Annotated[
+        str, Field(description="Agent framework: langchain, autogen, crewai, claude-code.")
+    ] = "",
+    description: Annotated[
+        str, Field(description="Short description of what this agent does.")
+    ] = "",
 ) -> dict:
     """Register a new agent with the guardrail system. Must be called before evaluate_action."""
     payload: dict[str, Any] = {"name": name}
@@ -124,13 +154,15 @@ def register_agent(
     return _api_call("POST", "/v1/agents", payload)
 
 
-@mcp.tool(annotations={
-    "title": "List Agents",
-    "readOnlyHint": True,
-    "destructiveHint": False,
-    "idempotentHint": True,
-    "openWorldHint": False,
-})
+@mcp.tool(
+    annotations={
+        "title": "List Agents",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+)
 def list_agents() -> dict:
     """List all agents currently registered in the guardrail system. Shows active and killed agents.
 
@@ -140,13 +172,15 @@ def list_agents() -> dict:
     return _api_call("GET", "/v1/agents")
 
 
-@mcp.tool(annotations={
-    "title": "Get Statistics",
-    "readOnlyHint": True,
-    "destructiveHint": False,
-    "idempotentHint": True,
-    "openWorldHint": False,
-})
+@mcp.tool(
+    annotations={
+        "title": "Get Statistics",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+)
 def get_stats() -> dict:
     """Retrieve aggregate statistics from the guardrail system including evaluation counts, policy data, and agent metrics.
 
@@ -156,27 +190,36 @@ def get_stats() -> dict:
     return _api_call("GET", "/v1/stats")
 
 
-@mcp.tool(annotations={
-    "title": "Kill Agent (Emergency)",
-    "readOnlyHint": False,
-    "destructiveHint": True,
-    "idempotentHint": True,
-    "openWorldHint": False,
-})
+@mcp.tool(
+    annotations={
+        "title": "Kill Agent (Emergency)",
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+)
 def kill_agent(
-    agent_id: Annotated[str, Field(description="Unique identifier of the agent to kill. All subsequent actions will be denied.")],
+    agent_id: Annotated[
+        str,
+        Field(
+            description="Unique identifier of the agent to kill. All subsequent actions will be denied."
+        ),
+    ],
 ) -> dict:
     """Emergency kill-switch: immediately block ALL actions for an agent. Use when an agent is misbehaving or compromised."""
     return _api_call("POST", f"/v1/agents/{agent_id}/kill")
 
 
-@mcp.tool(annotations={
-    "title": "Unkill Agent",
-    "readOnlyHint": False,
-    "destructiveHint": False,
-    "idempotentHint": True,
-    "openWorldHint": False,
-})
+@mcp.tool(
+    annotations={
+        "title": "Unkill Agent",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+)
 def unkill_agent(
     agent_id: Annotated[str, Field(description="Unique identifier of the agent to reactivate.")],
 ) -> dict:

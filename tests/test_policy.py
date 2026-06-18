@@ -323,6 +323,72 @@ class TestNetworkDenylist:
         decision = engine.evaluate(agent["id"], "network_request", target="api.openai.com")
         assert decision.decision == "allow"
 
+    def test_deny_network_url_by_hostname(self, store, agent, engine):
+        store.save_policy(
+            {
+                "name": "no-evil",
+                "agent_id": agent["id"],
+                "rules": {"network_denylist": ["evil.com"]},
+            }
+        )
+        decision = engine.evaluate(
+            agent["id"],
+            "network_request",
+            target="https://evil.com/api/v1",
+        )
+        assert decision.decision == "deny"
+
+    def test_deny_network_url_by_subdomain_pattern(self, store, agent, engine):
+        store.save_policy(
+            {
+                "name": "no-example-subdomains",
+                "agent_id": agent["id"],
+                "rules": {"network_denylist": ["*.example.com"]},
+            }
+        )
+        decision = engine.evaluate(
+            agent["id"],
+            "network_request",
+            target="https://api.example.com/v1/messages",
+        )
+        assert decision.decision == "deny"
+
+    def test_network_allowlist_override_full_url(self, store, agent, engine):
+        store.save_policy(
+            {
+                "name": "restricted-network",
+                "agent_id": agent["id"],
+                "rules": {
+                    "network_denylist": ["*"],
+                    "network_allowlist": ["api.openai.com"],
+                },
+            }
+        )
+        decision = engine.evaluate(
+            agent["id"],
+            "network_request",
+            target="https://api.openai.com/v1/chat/completions",
+        )
+        assert decision.decision == "allow"
+
+    def test_network_allowlist_override_case_and_port(self, store, agent, engine):
+        store.save_policy(
+            {
+                "name": "restricted-network",
+                "agent_id": agent["id"],
+                "rules": {
+                    "network_denylist": ["*"],
+                    "network_allowlist": ["api.openai.com"],
+                },
+            }
+        )
+        decision = engine.evaluate(
+            agent["id"],
+            "network_request",
+            target="HTTPS://API.OPENAI.COM:443/v1/chat/completions",
+        )
+        assert decision.decision == "allow"
+
 
 class TestEvaluateAndRecord:
     def test_evaluate_and_record_creates_action(self, store, agent, engine):

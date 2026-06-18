@@ -36,6 +36,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,28 @@ def _matches_pattern(value: str, patterns: List[str]) -> bool:
         if fnmatch.fnmatch(value.lower(), pattern.lower()):
             return True
     return False
+
+
+def _network_match_values(target: str) -> List[str]:
+    """Return URL and host candidates for network policy matching."""
+    candidates = [target]
+    parsed = urlparse(target)
+
+    # Bare hosts like "api.example.com/path" parse as a path, not a host.
+    if not parsed.hostname and "://" not in target:
+        parsed = urlparse(f"//{target}")
+
+    if parsed.hostname:
+        candidates.append(parsed.hostname)
+        if parsed.netloc:
+            candidates.append(parsed.netloc)
+
+    return list(dict.fromkeys(candidates))
+
+
+def _matches_network_pattern(target: str, patterns: List[str]) -> bool:
+    """Check if a network target or its parsed host matches any policy pattern."""
+    return any(_matches_pattern(candidate, patterns) for candidate in _network_match_values(target))
 
 
 class PolicyEngine:
@@ -116,12 +139,15 @@ class PolicyEngine:
         if not agent.get("enabled"):
             return PolicyDecision(decision="deny", reason="Agent disabled")
 
-        # Normalize target to prevent path traversal bypass on denylists
+        # Normalize file-like targets to prevent path traversal bypass on denylists.
         if target:
-            target = os.path.normpath(target)
-            # normpath preserves leading // on POSIX (implementation-defined) — collapse it
-            if target.startswith("//") and not target.startswith("///"):
-                target = target[1:]
+            if action_type == "network_request":
+                target = target.strip()
+            else:
+                target = os.path.normpath(target).replace("\\", "/")
+                # normpath preserves leading // on POSIX (implementation-defined) — collapse it
+                if target.startswith("//") and not target.startswith("///"):
+                    target = target[1:]
 
         # Clamp cost to non-negative (prevent spend cap bypass via negative cost)
         cost_usd = max(0.0, cost_usd)
@@ -184,10 +210,10 @@ class PolicyEngine:
             # Network denylist
             network_deny = rules.get("network_denylist", [])
             if action_type == "network_request" and target and network_deny:
-                if _matches_pattern(target, network_deny):
+                if _matches_network_pattern(target, network_deny):
                     # Check allowlist override
                     network_allow = rules.get("network_allowlist", [])
-                    if not (network_allow and _matches_pattern(target, network_allow)):
+                    if not (network_allow and _matches_network_pattern(target, network_allow)):
                         return PolicyDecision(
                             decision="deny",
                             reason=f"Network target '{target}' denied",
